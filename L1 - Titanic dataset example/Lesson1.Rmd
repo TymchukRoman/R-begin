@@ -1,0 +1,180 @@
+```{r}
+# Load required libraries
+library(titanic)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+
+# Load Titanic dataset
+data <- titanic::titanic_train
+
+```
+
+# Survived by a sex
+```{r}
+# Handle missing values
+data$Age[is.na(data$Age)] <- median(data$Age, na.rm = TRUE)
+
+# Visualize survival rates by gender
+ggplot(data, aes(x = Sex, fill = as.factor(Survived))) +
+  geom_bar(position = "fill") +
+  labs(y = "Proportion", fill = "Survived") +
+  theme_minimal()
+
+```
+
+# Survive prediction based on Sex 
+```{r}
+# Convert 'Survived' to a factor (important for classification models)
+data$Survived <- as.factor(data$Survived)
+
+# Build a logistic regression model
+model <- glm(Survived ~ Sex, data = data, family = binomial)
+
+# Summary of the model
+summary(model)
+
+# Predict survival probabilities
+data$Survival_Chance <- predict(model, type = "response")
+
+# View a sample of the predictions
+head(data[, c("Sex", "Survival_Chance")])
+
+ggplot(data, aes(x = Sex, y = Survival_Chance, fill = Sex)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = "Predicted Survival Chances by Gender",
+       y = "Survival Probability",
+       x = "Gender") +
+  theme_minimal()
+
+
+data$Predicted_Survival <- ifelse(data$Survival_Chance > 0.5, 1, 0)
+
+confusionMatrix(as.factor(data$Predicted_Survival), data$Survived)
+
+
+```
+
+# Survive prediction based on Sex and Passanger class
+```{r}
+
+# Convert 'Survived' to a factor for classification
+data$Survived <- as.factor(data$Survived)
+
+# Build a logistic regression no_age_model
+no_age_model <- glm(Survived ~ Sex + Pclass, data = data, family = binomial)
+
+# Summary of the no_age_model
+summary(no_age_model)
+
+# Predict survival probabilities
+data$Survival_Chance <- predict(no_age_model, type = "response")
+
+# View sample predictions
+head(data[, c("Sex", "Pclass", "Survival_Chance")])
+
+# Classify based on a 0.5 threshold
+data$Predicted_Survival <- ifelse(data$Survival_Chance > 0.5, 1, 0)
+
+# View a few predictions
+head(data[, c("Sex", "Pclass", "Survival_Chance", "Predicted_Survival")])
+
+confusionMatrix(as.factor(data$Predicted_Survival), data$Survived)
+
+# Plot predicted survival chances by class and gender
+ggplot(data, aes(x = Pclass, y = Survival_Chance, fill = Sex)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = "Predicted Survival Chances by Class and Gender",
+       y = "Survival Probability",
+       x = "Passenger Class") +
+  theme_minimal()
+
+```
+
+# Survive prediction based on Sex, Age and Passanger class
+```{r}
+
+# Convert 'Survived' to a factor for classification
+data$Survived <- as.factor(data$Survived)
+
+# Build a logistic regression model
+model <- glm(Survived ~ Sex + Pclass + Age, data = data, family = binomial)
+
+# Summary of the model
+summary(model)
+
+# Predict survival probabilities
+data$Survival_Chance <- predict(model, type = "response")
+
+# View sample predictions
+head(data[, c("Sex", "Pclass", "Age", "Survival_Chance")])
+
+# Classify based on a 0.5 threshold
+data$Predicted_Survival <- ifelse(data$Survival_Chance > 0.5, 1, 0)
+
+# View a few predictions
+head(data[, c("Sex", "Pclass", "Survival_Chance", "Predicted_Survival")])
+
+confusionMatrix(as.factor(data$Predicted_Survival), data$Survived)
+
+# Plot predicted survival chances by class and gender
+ggplot(data, aes(x = Age, y = Survival_Chance, color = Sex)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Predicted Survival Chances by Age and Gender",
+       x = "Age",
+       y = "Survival Probability") +
+  theme_minimal()
+
+saveRDS(model, "./SPS_survival_prediction.RDS")
+
+```
+
+# Comparing model with and without Age
+```{r}
+# Compare AIC values
+AIC(no_age_model)  # Previous model
+AIC(model)  # Updated model
+
+interaction_model <- glm(Survived ~ Sex * Age + Pclass, data = data, family = binomial)
+summary(interaction_model)
+
+# Lower AIC indicates a better model.
+```
+
+# Decision tree model example
+```{r}
+# Fit a decision tree model
+tree_model <- rpart(Survived ~ Sex + Age + Pclass, data = data, method = "class")
+
+# Plot the decision tree
+rpart.plot(tree_model, type = 3, extra = 102, under = TRUE, fallen.leaves = TRUE)
+```
+
+# Testing model on synthetic data
+```{r}
+# Load Titanic dataset
+synthetic_titanic_data <- read.csv("../synthetic_titanic_data.csv")
+
+use_model <- readRDS("./SPS_survival_prediction.RDS")
+
+synthetic_titanic_data$Sex <- factor(synthetic_titanic_data$Sex, levels = c("male", "female"))
+synthetic_titanic_data$Pclass <- as.numeric(synthetic_titanic_data$Pclass)
+
+# Predict survival probabilities (for example, if it's a logistic regression model)
+synthetic_titanic_data$Survival_Chance <- predict(model, newdata = synthetic_titanic_data, type = "response")
+
+# If your model is a classification model (like decision tree), use predict() for class labels
+synthetic_titanic_data$Survival_Chance <- predict(model, newdata = synthetic_titanic_data, type = "response")
+
+synthetic_titanic_data$Predicted_Survival <- ifelse(synthetic_titanic_data$Survival_Chance > 0.5, 1, 0)
+
+```
+
+
+
+
+
+
